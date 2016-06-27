@@ -13,6 +13,9 @@ spa.shell = (function() {
     //----------BEGIN MODULE SCOPE VARIABLES----------
     var
         configMap = {
+            anchor_schema_map:{
+                chat:{open:true,closed:true}
+            },
             main_html: String() +
                 '<div class="spa-shell-head">' +
                 '<div class="spa-shell-head-logo"></div>' +
@@ -33,17 +36,23 @@ spa.shell = (function() {
         },
         stateMap = {
             $container: null,
+            anchor_map:{},
             is_chat_retracted: true
         },
         jqueryMap = {},
-
+        copyAnchorMap,changeAnchorPart,onHashchange,
         setJqueryMap, toggleChat, initModule;
     //----------END MODULE SCOPE VARIABLES -----------
 
     //----------BEGIN UTILITY METHODS ----------------
+    //Return copy of stored anchor map;minimizes overhead
+    copyAnchorMap = function(){
+        return $.extend(true,{},stateMap.anchor_map);
+    }
     //----------END UTILITY METHODS -----------
 
     //----------BEGIN DOM METHODS -----------
+
     //Begin DOM method /setJqueryMap/
     setJqueryMap = function() {
         var $container = stateMap.$container;
@@ -106,9 +115,87 @@ spa.shell = (function() {
         //End retract chat slider
     };
     //End DOM method /toggleChat/
+
+    //Begin DOM method /changeAnchorPart/
+    //Purpose:Changes part of the URI anchtor component
+    //Arguments:
+    //  *arg_map - The map describing what part of the URI 
+    //   anchor we want changed.
+    //Returns : boolean
+    //  *true - the Anchor portion of the URI was update
+    //  *false - the Anchor portion of the URI could not be 
+    //   updated.
+    //Action:
+    //  The current anchor rep stored in stateMap.anchor_map.
+    //  See uriAnchor for a discussion of encoding.
+    //  This method 
+    //  *Creates copy of this map using copyAnchorMap().
+    //  *Modifies the key-values using arg_map.
+    //  *Manages the distinction between independent
+    //   and dependent values in the encoding.
+    //  *Attmepts to change the URI using uriAnchor.
+    //  *Returns true on success, and false on failure.
+    changeAnchorPart = function(arg_map){
+        var
+            anchor_map_revise = copyAnchorMap(),
+            bool_return = true,
+            key_name,key_name_dep;
+            //Begin merge changes into anchor map
+            KEYVAL:
+            for(key_name in arg_map){
+                //skip dependent keys during iteration
+                if(key_name.indexOf('_')===0){continue KEYVAL;}
+                //update matching dependent key
+                anchor_map_revise[key_name] = arg_map[key_name];
+                //update independent key value
+                key_name_dep = '_'+key_name;
+                if(art_map[key_name_dep]){
+                    anchor_map_revise[key_name_dep] = arg_map[key_name_dep];
+                }else {
+                    delete anchor_map_revise[key_name_dep];
+                    delete anchor_map_revise['_s'+key_name_dep];
+                }
+            }
+    }
+    //End merge changes into anchor map
+    //Begin attempt to update URI ; revert if not successful
+    try{
+        $.uriAnchor.setAnchor(anchor_map_revise);
+    }
+    catch(error){
+        //replace URI with existing state
+        $.uriAnchor.setAnchor(stateMap.anchor_map,null,true);
+        bool_return = false;
+    }
+    //End attempt to update URI...
+
+
     //----------END DOM METHODS -----------
 
     //----------BEGIN EVENT HANDLERS -----------
+    //Begin Event handler /onHashchange/
+    //Purpose :Handles the hashchange event
+    //Arguments:
+    //  *event - jQuery event object.
+    //Settings: none
+    //Returns:false
+    //Action:
+    //  *Parses the URI anchor component
+    //  *Compares proposed application state with current
+    //  *Adjust the application only where proposed state
+    // differs from existing
+    //
+    onHashchange = function(event){
+        var 
+            anchor_map_previous=copyAnchorMap(),
+            anchor_map_propose,
+            _s_chat_previous,_s_chat_proposed,
+            s_chat_proposed;
+
+            //attempt to parse anchor
+            
+    }
+
     onClickChat = function(event) {
         if(toggleChat(stateMap.is_chat_retracted)){
             $.uriAnchor.setAnchor({
